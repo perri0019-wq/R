@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DICE</title>
+
+<style>
+* {
+  box-sizing: border-box;
+  font-weight: 800;
+}
+
+body {
+  margin: 0;
+  background: #f5f6fa;
+  font-family: Arial, sans-serif;
+  min-height: 100vh;
+}
+
+/* Баланс */
+.balance {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #fff;
+  padding: 10px 16px;
+  border-radius: 18px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  font-size: 17px;
+}
+
+.balance img {
+  width: 22px;
+  height: 22px;
+}
+
+/* Центр */
+.container {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.game {
+  width: 100%;
+  max-width: 400px;
+  background: #fff;
+  border-radius: 26px;
+  padding: 24px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+  text-align: center;
+}
+
+h1 {
+  margin: 6px 0 20px;
+  font-size: 26px;
+}
+
+/* Поля */
+.row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.input-group {
+  flex: 1;
+}
+
+label {
+  display: block;
+  font-size: 15px;
+  opacity: 0.85;
+  margin-bottom: 6px;
+}
+
+/* Поле + кнопки */
+.input-box {
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid #ccc;
+}
+
+.input-box input {
+  width: 100%;
+  padding: 14px;
+  font-size: 17px;
+  border: none;
+  outline: none;
+  text-align: center;
+}
+
+.input-actions {
+  display: flex;
+}
+
+.input-actions button {
+  flex: 1;
+  padding: 12px;
+  font-size: 15px;
+  border: none;
+  background: #1e88e5;
+  color: #fff;
+  cursor: pointer;
+}
+
+.input-actions button:first-child {
+  border-right: 1px solid rgba(255,255,255,0.35);
+}
+
+/* Основные кнопки */
+.buttons {
+  display: flex;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.buttons button {
+  flex: 1;
+  padding: 20px;
+  font-size: 20px;
+  border-radius: 26px;
+  border: none;
+  background: #1e88e5;
+  color: #fff;
+  cursor: pointer;
+}
+
+/* Возможный выигрыш */
+.payout {
+  margin-top: 18px;
+  background: #eef2f7;
+  padding: 14px;
+  border-radius: 18px;
+  font-size: 16px;
+}
+
+/* Результат */
+.result {
+  margin-top: 18px;
+  padding: 16px;
+  background: #f1f3f6;
+  border-radius: 18px;
+  font-size: 16px;
+}
+
+.win { color: #2e7d32; }
+.lose { color: #c62828; }
+</style>
+</head>
+<body>
+
+<div class="balance">
+  <img src="coin.png">
+  <span id="balance">0</span>
+</div>
+
+<div class="container">
+  <div class="game">
+    <h1>🎲 DICE</h1>
+
+    <div class="row">
+      <!-- Ставка -->
+      <div class="input-group">
+        <label>Ставка</label>
+        <div class="input-box">
+          <input type="number" id="bet" value="100" min="1" oninput="updatePayout()">
+          <div class="input-actions">
+            <button onclick="halfBet()">½</button>
+            <button onclick="doubleBet()">x2</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Шанс -->
+      <div class="input-group">
+        <label>Шанс %</label>
+        <div class="input-box">
+          <input type="number" id="chance" value="50" min="1" max="95" oninput="updatePayout()">
+          <div class="input-actions">
+            <button onclick="halfChance()">½</button>
+            <button onclick="doubleChance()">x2</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="payout">
+      Возможный выигрыш: <b id="payout">0</b>
+    </div>
+
+    <div class="buttons">
+      <button onclick="play('less')">МЕНЬШЕ</button>
+      <button onclick="play('more')">БОЛЬШЕ</button>
+    </div>
+
+    <div class="result" id="result">
+      Выбери ставку и шанс
+    </div>
+  </div>
+</div>
+
+<script>
+class Dice {
+  roll() {
+    return Math.random() * 100; // 0.00 – 99.99
+  }
+  multiplier(chance) {
+    return (100 / chance) * 0.97; // комиссия 3%
+  }
+}
+
+const game = new Dice();
+let balance = Number(localStorage.getItem('balance')) || 1000;
+
+const balanceEl = document.getElementById('balance');
+const betInput = document.getElementById('bet');
+const chanceInput = document.getElementById('chance');
+const payoutEl = document.getElementById('payout');
+const resultEl = document.getElementById('result');
+
+function updateBalance() {
+  balanceEl.textContent = balance.toFixed(2);
+  localStorage.setItem('balance', balance);
+}
+
+function updatePayout() {
+  let bet = Number(betInput.value);
+  let chance = Number(chanceInput.value);
+
+  if (bet < 1) bet = 1;
+  if (chance < 1) chance = 1;
+  if (chance > 95) chance = 95;
+
+  betInput.value = bet;
+  chanceInput.value = chance;
+
+  payoutEl.textContent = (bet * game.multiplier(chance)).toFixed(2);
+}
+
+function halfBet() {
+  betInput.value = Math.max(1, Math.floor(betInput.value / 2));
+  updatePayout();
+}
+
+function doubleBet() {
+  betInput.value = Math.min(balance, betInput.value * 2);
+  updatePayout();
+}
+
+function halfChance() {
+  chanceInput.value = Math.max(1, Math.floor(chanceInput.value / 2));
+  updatePayout();
+}
+
+function doubleChance() {
+  chanceInput.value = Math.min(95, chanceInput.value * 2);
+  updatePayout();
+}
+
+function play(type) {
+  const bet = Number(betInput.value);
+  const chance = Number(chanceInput.value);
+
+  if (bet < 1 || bet > balance) {
+    resultEl.textContent = '❌ Неверная ставка';
+    return;
+  }
+
+  balance -= bet;
+
+  const roll = game.roll();
+  let win = false;
+
+  if (type === 'less') {
+    win = roll < chance;
+  } else {
+    win = roll > (100 - chance);
+  }
+
+  if (win) {
+    balance += bet * game.multiplier(chance);
+  }
+
+  updateBalance();
+
+  resultEl.innerHTML = `
+    Выпало: <b>${roll.toFixed(2)}</b><br>
+    <span class="${win ? 'win' : 'lose'}">
+      ${win ? 'Победа' : 'Проигрыш'}
+    </span>
+  `;
+}
+
+updateBalance();
+updatePayout();
+</script>
+
+</body>
+</html>
